@@ -1,0 +1,80 @@
+---
+title: "ST 8114 group project"
+author: "Brett Farmer, Mark Hill"
+date: "9/17/2020"
+output:
+  html_document:
+    dev: svg
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float:
+      colllapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# library/read in of data {-}
+```{r, message=FALSE}
+rm(list = ls())
+library(tidyverse)
+library(ggpubr)
+library(car)
+```
+
+```{r}
+
+dat <- read.csv("cohort_DIABP_female.txt", header = TRUE, sep = "")
+dat$SMOKING <- as.factor(dat$SMOKING)
+dat$HTNMED <- as.factor(dat$HTNMED)
+attach(dat)
+str(dat)
+```
+
+
+# How is each explanatory variable associated with the response variable? (DIABP ~ c(AGE, SMOKING, HTNMED))
+
+## DIABP ~ AGE
+```{r}
+
+cor(AGE, DIABP)
+lm(DIABP ~ AGE)
+
+ggplot(dat,
+       aes(x = AGE, y= DIABP))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  theme_pubclean()
+```
+
+## DIABP ~ SMOKING
+```{r}
+ggplot(dat)+
+  geom_boxplot(
+    aes(y= DIABP, x = SMOKING, fill= SMOKING))+
+    ggtitle("Comparison of Diastolic Blood Pressure distribution for factor \n SMOKING")+
+  theme_pubclean()
+
+model <- lm(DIABP ~ SMOKING)
+summary(model)$coef
+```
+
+## DIABP ~ HTNMED
+```{r}
+ggplot(dat,
+      aes(x= HTNMED, y= DIABP, fill= HTNMED))+
+    geom_boxplot()+
+    ggtitle("Comparison of Diastolic Blood Pressure distribution for factor \n HYPERTENSION MEDS")+
+  theme_pubclean()
+
+model2 <- lm(DIABP ~ HTNMED)
+summary(model2)$coef
+```
+The very small p-value [2,4] for the yes category suggests there is a very strong relationship between the meds and DIABP
+## Model which contains both categorical predictor vars
+```{r}
+model3 <- lm(DIABP ~ SMOKING + HTNMED)
+Anova(model3) %>% knitr::kable()
+```
