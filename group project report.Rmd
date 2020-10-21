@@ -73,7 +73,9 @@ model2 <- lm(DIABP ~ HTNMED)
 summary(model2)$coef
 ```
 The very small p-value [2,4] for the yes category suggests there is a very strong relationship between the meds and DIABP
+
 ## Model which contains both categorical predictor vars
+
 ```{r}
 model3 <- lm(DIABP ~ SMOKING + HTNMED)
 Anova(model3) %>% knitr::kable()
