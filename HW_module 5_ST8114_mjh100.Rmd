@@ -1,0 +1,225 @@
+---
+title: |
+      Lab Homework Module:5   
+      ST8114  
+      mjh100  
+      
+author: "Mark Hill"
+date: "10/30/2020"
+output:
+  pdf_document: 
+    toc: true
+    toc_depth: 2
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(patchwork)
+library(nortest)
+library(broom)
+library(purrr)
+```
+
+
+\newpage
+
+# Practice 1
+```{r}
+estate <- read.csv("~/ST 8114/lab/module 5/data/estate.txt", sep = " ", header = TRUE)
+```
+
+## a
+```{r, fig.height=4}
+
+ggplot(estate, aes(x= finished, y= price))+
+  geom_point()+
+  geom_smooth(method = "lm", se=F)
+```
+
+\newpage
+
+## b
+```{r}
+model <- lm(price ~ finished, estate)
+summary(model)
+
+cat("yhat=", model$coefficients[1], "+", model$coefficients[2],"x")
+```
+We would expect the cost of houses to increase by 0.1526 * thousand dollars for each additional square foot in size. ie. $152 more for each additional square foot.
+
+\newpage
+
+# Practice 2
+```{r}
+garbage <- read.csv("~/ST 8114/lab/module 5/data/garbage.txt", header = TRUE)
+```
+
+## a
+
+```{r, fig.height=4.5}
+a <- ggplot(garbage, aes(x= volume))+
+      geom_boxplot()
+
+b <- ggplot(garbage, aes(sample= volume))+
+  stat_qq()+
+  stat_qq_line()
+
+a / b
+```
+These appear to be normally distributed values
+
+\newpage
+
+## b
+
+```{r}
+t1 <- shapiro.test(garbage$volume)
+t2 <- pearson.test(garbage$volume)
+t3 <- sf.test(garbage$volume)
+t4 <- ad.test(garbage$volume)
+tab <- map_df(list(t1,t2,t3,t4),tidy)
+tab
+```
+No rejection of $H_0$ in any of the tests.
+
+## c
+
+```{r}
+t5 <- t.test(garbage$volume, conf.level = .9)
+cat("90% confidence interval for mean of garbage$volume",t5$conf.int)                
+```
+
+## d
+
+```{r}
+t6 <- t.test(garbage$volume, conf.level = .90, mu= 1600, alternative = "greater")
+t6
+```
+There is evidence, at $\alpha$ = 0.1, to reject $H_0: \mu \leq 1600$. Thus the two week schedule is desirable since they would usually pick up more than 1600 cubic feet.
+
+\newpage
+
+# Practice 3
+```{r}
+wgtgain <- read.csv("~/ST 8114/lab/module 5/data/wgtgain.txt", header = TRUE, sep = " ")
+```
+
+## a
+
+```{r}
+wgtgain$diff <- wgtgain$after - wgtgain$before
+```
+## b
+
+```{r, fig.height= 3}
+ggplot(wgtgain, aes(sample= diff))+
+  stat_qq()+
+  stat_qq_line()
+```
+
+## c
+
+```{r}
+t1 <- tidy(shapiro.test(wgtgain$diff))
+t1
+```
+
+## d
+
+```{r}
+t2 <- t.test(x= wgtgain$after, y= wgtgain$before, paired = TRUE)
+cat("95% confidence interval for weight gain after treatment is", "(",t2$conf.int,") kg.")
+```
+
+## e
+
+```{r}
+t3 <- t.test(wgtgain$diff, alternative = "two.sided", mu= 7)
+```
+
+## f
+
+```{r}
+t4 <- t.test(wgtgain$diff, alternative = "greater", mu= 7)
+```
+
+## g
+
+```{r}
+t5 <- t.test(wgtgain$diff, alternative = "less", mu= 7)
+
+tab <- map_df(list(t3,t4,t5), tidy)
+tab
+```
+  1. p-value < $\alpha$ =0.05, accept $H_a$ that differences are not equal to 7 Kg.
+  2. p-value $\approx$ 1, fail to reject $H_0$ that weight gain after the treatment is greater than 7 Kg.
+  3. p-value < $\alpha$ =0.05, accept $H_a$ that differences are less than 7 Kg.
+
+\newpage
+
+# Practice 4
+```{r}
+bonuses <- read.csv("~/ST 8114/lab/module 5/data/bonuses.txt", header = TRUE, sep = " ",
+                    stringsAsFactors = TRUE)
+```
+
+## a
+```{r, results='hold', fig.height=3}
+ggplot(bonuses)+
+  geom_boxplot(aes(y= bonus))+
+  facet_wrap(~gender)
+
+ggplot(bonuses,aes(sample= bonus))+
+  stat_qq()+
+  stat_qq_line()+
+  facet_wrap(~gender)
+```
+
+\newpage
+
+## b
+```{r}
+do.call("rbind",
+        with(bonuses, tapply(bonus, gender,
+              function(x) 
+                unlist(shapiro.test(x)
+                       [c("statistic", "p.value")])
+                      )
+             )
+        )
+```
+Based on the Q-Q plot, boxplot, and the small p-value, the male sample follows a non-normal distribution. It exhibits a pattern of right skewness.
+
+## c
+
+```{r}
+t.test(bonuses$bonus ~ bonuses$gender)
+```
+Here, at the assumed $\alpha$ = 0.05 we would fail to reject $H_0  : \mu_1 = \mu_2$  
+<b><b><b>  
+But, our assumption of normality has been violated from one of the groups. Lets see if the findings will be different utilizing a nonparametric test.
+
+```{r}
+wilcox.test(bonuses$bonus ~ bonuses$gender, correct= FALSE)
+```
+Again, we don't reject the null in this `two.sided` test. This less "efficient" test leaves us even farther away despite the aforementioned normality violation.
+
+\newpage
+
+## d
+
+```{r}
+var.test(bonuses$bonus~ bonuses$gender)
+```
+
+
+## e
+
+```{r}
+t.test(bonuses$bonus ~ bonuses$gender, var.equal= TRUE, alternative= "less")
+```
+Assuming the groups have equal variance and specifying the alternative presents a different result in our `t.test`. The last test showed a difference in means hence the direction of the alternative. Even a two tailed test results in p-value  $<\alpha = 0.05$. Conclusion: accept $H_a$ : female bonuses are less than male bonuses.
