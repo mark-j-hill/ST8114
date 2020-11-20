@@ -1,0 +1,168 @@
+---
+title: "ST 8114 group project"
+author: "Brett Farmer, Mark Hill"
+date: "9/17/2020"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    dev: svg
+    df_print: paged
+    number_sections: yes
+    toc: yes
+    toc_float:
+      colllapsed: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# library/read in of data {-}
+```{r, message=FALSE}
+rm(list = ls())
+library(tidyverse)
+library(ggpubr)
+library(car)
+library(broom)
+library(knitr)
+library(Hmisc)
+library(patchwork)
+library(mosaic)
+```
+
+```{r, warning= FALSE}
+
+dat <- read.csv("cohort_DIABP_female.txt", header = TRUE, sep = "")
+dat$SMOKING <- as.factor(dat$SMOKING)
+dat$HTNMED <- as.factor(dat$HTNMED)
+attach(dat)
+describe(dat)
+```
+
+# Test some model assumptions first
+```{r}
+densityPlot(DIABP)
+
+ggplot(dat)+
+  stat_density(aes(x= DIABP))
+
+ggplot(dat)+
+  stat_density(aes(x= DIABP, fill= HTNMED) )
+```
+Here we plotted density of the HTNMED groups because the sample of HTNMED == "yes" is less than the threshold for large sample sizes (n=17) 
+
+```{r}
+ggplot(dat, aes(sample = DIABP))+
+  stat_qq()+
+  stat_qq_line()
+
+qqPlot(DIABP)
+
+shapiro.test(DIABP)
+
+```
+It would appear from the density and qqplots that the distribution of the response variable is slightly skewed to the right. The very small p-value in the test would indicate we would reject the null hypothesis that our diastolic blood pressure values come from a normal distribution. Though, with a large sample size (n= 200) the `shapiro.test` detects even a very tiny departure from normality. For our case this departure will not impact our `t.test` result in any meaningful way because it is robust against this violation when used with very large sample sizes.
+
+# How is each explanatory variable associated with the response variable? <br> (DIABP ~ c(AGE, SMOKING, HTNMED))
+
+## EDA: model with all three variables
+
+```{r}
+model3 <- lm(DIABP ~ SMOKING+ AGE + HTNMED)
+summary(model3)$coef %>% kable()
+```
+
+
+## DIABP ~ AGE
+```{r}
+
+cor(AGE, DIABP)
+model1 <- lm(DIABP ~ AGE)
+summary(model1)$coef %>% kable()
+```
+
+```{r, message=FALSE}
+ggplot(dat,
+       aes(x = AGE, y= DIABP))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  theme_pubclean()
+```
+
+## DIABP ~ SMOKING
+```{r}
+tests <- list(c("current-smoker", "non-smoker"), 
+              c("current-smoker", "past-smoker"), 
+              c("non-smoker","past-smoker"))
+ggplot(dat, aes(y= DIABP, x = SMOKING, fill= SMOKING))+
+  geom_boxplot()+
+  stat_compare_means(comparisons = tests, method = "t.test")+
+  ggtitle("Comparison of Diastolic Blood Pressure distribution for factor \n SMOKING")+
+  theme_pubclean()+
+  theme(legend.position = "none")
+
+compare_means(DIABP ~ SMOKING, data = dat, method = "t.test") %>% kable()
+
+model2 <- lm(DIABP ~ SMOKING)
+summary(model2)$coef %>% kable()
+```
+
+## DIABP ~ HTNMED
+```{r}
+ggplot(dat,
+      aes(x= HTNMED, y= DIABP, fill= HTNMED))+
+    geom_boxplot()+
+    stat_compare_means(method = "t.test", method.args = list(var.equal = TRUE, alternative= "greater"))+
+    ggtitle("Comparison of Diastolic Blood Pressure distribution for factor \n HYPERTENSION MEDS")+
+  theme_pubclean()+
+  theme(legend.position = "none")
+
+model3 <- lm(DIABP ~ HTNMED)
+summary(model3)$coef %>% kable()
+```
+In a linear model, the very small p-value [2,4] for the yes category suggests there is a very strong relationship between the use of hypertension medication and diastolic blood pressure.
+
+```{r}
+t.test(DIABP ~ HTNMED, alternative = "less", var.equal =  TRUE)
+
+```
+Here our `t.test` suggests that we can move to reject the null hypothesis and conclude that there is a statistically significant differnce between these groups.
+
+## Model which contains both categorical predictor vars
+
+```{r}
+model4 <- lm(DIABP ~ SMOKING + HTNMED)
+Anova(model4) %>% kable()
+```
+
+```{r, results='asis'}
+summary(model4)$coef %>% kable()
+```
+
+```{r}
+bp <- ggplot(dat)+
+  geom_boxplot(aes(y= DIABP))+
+  theme_pubclean()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+ag <- ggplot(dat)+
+  geom_boxplot(aes(y= AGE))+
+  theme_pubclean()+
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+bp+ag
+
+```
+
+
+```{r}
+sumstats <- as.data.frame(favstats(dat[dat$HTNMED == "yes", 1]))
+sumstats[2,] <- favstats(dat[dat$HTNMED == "no", 1])
+sumstats$group <- c("yes", "no")
+sumstats <- sumstats[,c(10,1:8)]
+sumstats %>% kable(row.names = FALSE, format = "latex", booktabs= TRUE)
+```
+
